@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rear PECVD — AOI Defect Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--bg:#07111f;--surf:#0e1e30;--surf2:#142438;--surf3:#1a2d45;--border:#1e3555;--accent:#00c8ff;--a2:#ff6b35;--warn:#ffc107;--danger:#ff4060;--ok:#00e676;--text:#dce8f5;--dim:#5a7a99;--muted:#1e3555;--glow:0 0 24px rgba(0,200,255,.12);--font:'Rajdhani',sans-serif;--mono:'JetBrains Mono',monospace}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;font-size:15px}
+.hdr{background:linear-gradient(90deg,#07111f,#0b1e35,#07111f);border-bottom:1px solid var(--border);padding:14px 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200;gap:12px;flex-wrap:wrap}
+.hbrand{display:flex;align-items:center;gap:12px}
+.hlogo{width:40px;height:40px;background:linear-gradient(135deg,#00c8ff,#0055ff);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;color:#000;font-weight:800;box-shadow:0 0 14px rgba(0,200,255,.35);flex-shrink:0}
+.hname{font-size:20px;font-weight:700;letter-spacing:.5px}
+.hsub{font-size:11px;color:var(--dim);font-family:var(--mono);margin-top:1px}
+.dlive{width:7px;height:7px;background:var(--ok);border-radius:50%;box-shadow:0 0 7px var(--ok);animation:blink 1.8s infinite;flex-shrink:0}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.fbar{background:var(--surf);border-bottom:1px solid var(--border);padding:10px 28px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.flbl{font-size:10px;text-transform:uppercase;letter-spacing:1.2px;color:var(--dim);font-family:var(--mono);white-space:nowrap}
+.fi{background:var(--surf2);border:1px solid var(--border);color:var(--text);padding:6px 12px;border-radius:6px;font-family:var(--mono);font-size:12px;outline:none;transition:border-color .2s;width:145px}
+.fi:focus,.fi:hover{border-color:var(--accent)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{padding:4px 11px;border-radius:20px;cursor:pointer;font-size:12px;font-weight:600;border:1px solid var(--border);background:var(--surf2);color:var(--dim);transition:all .15s;font-family:var(--mono);white-space:nowrap}
+.chip:hover,.chip.on{background:rgba(0,200,255,.12);border-color:var(--accent);color:var(--accent)}
+.chip.on{box-shadow:0 0 8px rgba(0,200,255,.2)}
+.sep{width:1px;height:26px;background:var(--border);flex-shrink:0}
+.badge{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:6px;font-family:var(--mono);font-size:11px;border:1px solid;white-space:nowrap}
+.b-ok{background:rgba(0,230,118,.08);border-color:rgba(0,230,118,.3);color:var(--ok)}
+.b-warn{background:rgba(255,193,7,.08);border-color:rgba(255,193,7,.3);color:var(--warn)}
+.b-load{background:rgba(0,200,255,.08);border-color:rgba(0,200,255,.3);color:var(--accent)}
+.b-err{background:rgba(255,64,96,.08);border-color:rgba(255,64,96,.3);color:var(--danger)}
+/* Loading overlay */
+.lov{display:none;position:fixed;inset:0;background:rgba(7,17,31,.93);z-index:999;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+.lov.show{display:flex}
+.spin{width:44px;height:44px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.lmsg{font-family:var(--mono);font-size:13px;color:var(--dim)}
+.lchips{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.lch{font-family:var(--mono);font-size:11px;padding:3px 10px;border-radius:4px;border:1px solid var(--border);color:var(--dim);transition:all .3s}
+.lch.go{border-color:var(--accent);color:var(--accent);background:rgba(0,200,255,.08)}
+.lch.ok{border-color:var(--ok);color:var(--ok);background:rgba(0,230,118,.08)}
+.lch.fail{border-color:var(--danger);color:var(--danger)}
+/* No-data */
+.ndb{display:none;border:1px solid rgba(255,193,7,.25);background:rgba(255,193,7,.06);border-radius:10px;padding:18px 22px;margin-bottom:18px;font-family:var(--mono);font-size:12px;color:var(--warn);line-height:1.9}
+.ndb.show{display:block}
+.ndb strong{color:var(--text)}
+/* Wrap */
+.wrap{padding:22px 28px;max-width:1700px;margin:0 auto}
+/* Fleet */
+.fleet{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin-bottom:22px}
+.fc{background:var(--surf);border:1px solid var(--border);border-radius:10px;padding:12px 14px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden}
+.fc::after{content:"";position:absolute;bottom:0;left:0;right:0;height:3px;background:var(--fcc,var(--dim));opacity:.5;transition:opacity .2s}
+.fc:hover,.fc.on{border-color:var(--fcc,var(--accent));box-shadow:var(--glow)}
+.fc.on::after{opacity:1}
+.fc.nd{opacity:.35;cursor:default;pointer-events:none}
+.fn{font-size:12px;font-weight:700;font-family:var(--mono);color:var(--accent);margin-bottom:4px}
+.fv{font-size:22px;font-weight:700;line-height:1}
+.fr{font-size:11px;color:var(--dim);margin-top:2px}
+.fb{height:3px;background:var(--muted);border-radius:2px;margin-top:8px;overflow:hidden}
+.fbf{height:100%;border-radius:2px}
+/* KPI */
+.krow{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:22px}
+.kpi{background:var(--surf);border:1px solid var(--border);border-radius:10px;padding:16px;position:relative;overflow:hidden;transition:all .2s}
+.kpi:hover{border-color:var(--kc,var(--accent));transform:translateY(-2px);box-shadow:var(--glow)}
+.kpi::before{content:"";position:absolute;top:0;left:0;right:0;height:2px;background:var(--kc,var(--accent));opacity:.7}
+.kl{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim);margin-bottom:6px;font-family:var(--mono)}
+.kv{font-size:26px;font-weight:700;color:var(--kc,var(--text));line-height:1}
+.ks{font-size:11px;color:var(--dim);margin-top:5px}
+/* Grid */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px}
+.g3{display:grid;grid-template-columns:2.2fr 1fr;gap:18px;margin-bottom:18px}
+/* Card */
+.card{background:var(--surf);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.ch{padding:11px 18px;border-bottom:1px solid var(--border);background:var(--surf2);display:flex;align-items:center;justify-content:space-between}
+.ct{font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim)}
+.cb{padding:16px}
+/* Table */
+.tbl{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11.5px}
+.tbl th{background:var(--surf3);color:var(--dim);font-size:10px;letter-spacing:1px;text-transform:uppercase;padding:9px 12px;text-align:left;border-bottom:1px solid var(--border);font-family:var(--font);font-weight:600;white-space:nowrap}
+.tbl td{padding:9px 12px;border-bottom:1px solid rgba(30,53,85,.5);color:var(--text);white-space:nowrap}
+.tbl tr:hover td{background:rgba(0,200,255,.04)}
+.tbl tr:last-child td{border-bottom:none}
+.tag{display:inline-block;padding:2px 7px;border-radius:3px;font-size:10px;font-weight:600}
+.tok{background:rgba(0,230,118,.12);color:var(--ok)}.tng{background:rgba(255,64,96,.12);color:var(--danger)}.twn{background:rgba(255,193,7,.12);color:var(--warn)}
+.ngw{display:flex;align-items:center;gap:7px}
+.nbg{flex:1;height:5px;background:var(--muted);border-radius:3px;overflow:hidden;min-width:50px}
+.nf{height:100%;border-radius:3px}
+.np{min-width:42px;text-align:right;font-size:11px}
+.dfl{display:flex;flex-direction:column;gap:7px}
+.dfr{display:flex;align-items:center;gap:8px}
+.dfn{flex:1;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dfb{width:88px;height:4px;background:var(--muted);border-radius:2px;overflow:hidden;flex-shrink:0}
+.dfbf{height:100%;background:linear-gradient(90deg,var(--a2),var(--warn));border-radius:2px}
+.dfc{font-family:var(--mono);font-size:11px;color:var(--a2);min-width:30px;text-align:right}
+.chartbox{position:relative;height:230px}
+.footer{margin-top:28px;padding:14px 28px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;color:var(--dim);flex-wrap:wrap;gap:8px}
+@media(max-width:1200px){.fleet{grid-template-columns:repeat(4,1fr)}.krow{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:900px){.g2,.g3{grid-template-columns:1fr}.krow{grid-template-columns:repeat(2,1fr)}.fleet{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:600px){.krow{grid-template-columns:1fr 1fr}.fleet{grid-template-columns:repeat(2,1fr)}.wrap{padding:14px}}
+</style>
+</head>
+<body>
+
+<div class="lov" id="lov">
+  <div class="spin"></div>
+  <div class="lmsg" id="lmsg">Loading…</div>
+  <div class="lchips" id="lchips"></div>
+</div>
+
+<header class="hdr">
+  <div class="hbrand">
+    <div class="hlogo">⬡</div>
+    <div>
+      <div class="hname">Rear PECVD — AOI Defect Dashboard</div>
+      <div class="hsub">Waaree Energies · Rear PECVD Line · Live Data</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <div class="dlive"></div>
+    <span id="hDate" style="font-family:var(--mono);font-size:11px;color:var(--dim)">–</span>
+    <span id="hStat" class="badge b-load">● Loading…</span>
+  </div>
+</header>
+
+<div class="fbar">
+  <span class="flbl">📅 Date</span>
+  <input type="date" class="fi" id="df" onchange="onDateChange()">
+  <div class="sep"></div>
+  <span class="flbl">🔧 Machine</span>
+  <div class="chips" id="mchips">
+    <div class="chip on"  data-m="ALL"  onclick="selM('ALL',this)">ALL</div>
+    <div class="chip" data-m="RP01" onclick="selM('RP01',this)">RP01</div>
+    <div class="chip" data-m="RP02" onclick="selM('RP02',this)">RP02</div>
+    <div class="chip" data-m="RP03" onclick="selM('RP03',this)">RP03</div>
+    <div class="chip" data-m="RP04" onclick="selM('RP04',this)">RP04</div>
+    <div class="chip" data-m="RP05" onclick="selM('RP05',this)">RP05</div>
+    <div class="chip" data-m="RP06" onclick="selM('RP06',this)">RP06</div>
+    <div class="chip" data-m="RP07" onclick="selM('RP07',this)">RP07</div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="ndb" id="ndb"></div>
+  <div class="fleet" id="fleet"></div>
+  <div class="krow"  id="krow"></div>
+  <div class="g3">
+    <div class="card">
+      <div class="ch"><span class="ct">📦 Boat-wise Summary</span><span id="bsub" style="font-size:10px;color:var(--dim);font-family:var(--mono)"></span></div>
+      <div style="overflow-x:auto;max-height:380px;overflow-y:auto">
+        <table class="tbl"><thead><tr><th>Boat</th><th>Machine</th><th>Process</th><th>Total</th><th>OK</th><th>NG</th><th>NG Rate</th><th>Avg Thick.</th><th>Status</th></tr></thead><tbody id="btbody"></tbody></table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="ch"><span class="ct">⚠️ Top Defect Types</span><span id="dng" style="font-size:10px;color:var(--danger);font-family:var(--mono)"></span></div>
+      <div class="cb"><div class="dfl" id="dlist"></div></div>
+    </div>
+  </div>
+  <div class="g2">
+    <div class="card"><div class="ch"><span class="ct">📊 NG Rate by Machine</span><span id="mcDate" style="font-size:10px;color:var(--dim);font-family:var(--mono)"></span></div><div class="cb"><div class="chartbox"><canvas id="mcChart"></canvas></div></div></div>
+    <div class="card"><div class="ch"><span class="ct">📈 Hourly NG Trend</span><span id="hLbl" style="font-size:10px;color:var(--dim);font-family:var(--mono)"></span></div><div class="cb"><div class="chartbox"><canvas id="hChart"></canvas></div></div></div>
+  </div>
+  <div class="g2">
+    <div class="card"><div class="ch"><span class="ct">🥧 Defect Distribution</span></div><div class="cb"><div class="chartbox"><canvas id="pChart"></canvas></div></div></div>
+    <div class="card">
+      <div class="ch"><span class="ct">🏭 All Machines Summary</span></div>
+      <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Machine</th><th>Total</th><th>OK</th><th>NG</th><th>NG Rate</th><th>Avg Thick.</th><th>Boats</th><th>Status</th></tr></thead><tbody id="ambody"></tbody></table></div>
+    </div>
+  </div>
+</div>
+
+<footer class="footer">
+  <span id="footL">Rear PECVD AOI Dashboard</span>
+  <span>Updated: <span id="genT">–</span></span>
+</footer>
+
+<script>
+// ── CONFIG: set your GitHub username here ──────────────────────────
+const GH = 'https://raw.githubusercontent.com/YOUR_USERNAME/aoi-dashboard/main/data';
+// After setup replace YOUR_USERNAME with your actual GitHub username
+// Data loads from: GH + '/YYYY-MM-DD.json'
+// ──────────────────────────────────────────────────────────────────
+
+const MC=['RP01','RP02','RP03','RP04','RP05','RP06','RP07'];
+const CC=['#00c8ff','#ff6b35','#00e676','#ffc107','#a78bfa','#f472b6','#fb923c'];
+const GR='rgba(30,53,85,.8)';
+const DB={};
+let S={date:'',machine:'ALL',charts:{}};
+Chart.defaults.color='#5a7a99';
+Chart.defaults.font.family="'JetBrains Mono',monospace";
+Chart.defaults.font.size=11;
+
+function nc(r){return r>2?'var(--danger)':r>1.5?'#ff8c42':r>1?'var(--warn)':'var(--ok)'}
+function nt(r){return r>2?'<span class="tag tng">CRITICAL</span>':r>1.5?'<span class="tag tng">HIGH NG</span>':r>1?'<span class="tag twn">WATCH</span>':'<span class="tag tok">NORMAL</span>'}
+function dc(id){if(S.charts[id]){S.charts[id].destroy();delete S.charts[id]}}
+function ad(){return DB[S.date]||{}}
+function am(){const d=ad();return S.machine==='ALL'?MC.filter(m=>d[m]):[S.machine].filter(m=>d[m])}
+function st(t,m){const e=document.getElementById('hStat');e.className='badge b-'+t;e.innerHTML='<span>●</span> '+m}
+function showL(m){document.getElementById('lmsg').textContent=m;document.getElementById('lov').classList.add('show')}
+function hideL(){document.getElementById('lov').classList.remove('show')}
+
+async function onDateChange(){
+  const d=document.getElementById('df').value;
+  if(!d)return;
+  S.date=d;
+  document.getElementById('hDate').textContent=d;
+  document.getElementById('mcDate').textContent=d;
+  document.getElementById('ndb').classList.remove('show');
+
+  if(DB[d]&&Object.keys(DB[d]).length>0){
+    st('ok','Data loaded · '+d);
+    renderAll();
+    return;
+  }
+
+  showL('Loading data for '+d+'…');
+  document.getElementById('lchips').innerHTML=MC.map(m=>`<span class="lch" id="lc${m}">${m}</span>`).join('');
+
+  try{
+    const url=`${GH}/${d}.json?t=${Date.now()}`;
+    const r=await fetch(url,{signal:AbortSignal.timeout(12000)});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    DB[d]=await r.json();
+    MC.forEach(m=>{
+      const el=document.getElementById('lc'+m);
+      if(el) el.className='lch '+(DB[d][m]?'ok':'fail');
+    });
+    await new Promise(r=>setTimeout(r,400));
+    hideL();
+    st('ok',Object.keys(DB[d]).length+' machines · '+d);
+    renderAll();
+  }catch(err){
+    hideL();
+    const nb=document.getElementById('ndb');
+    nb.innerHTML=`<strong>No data found for ${d}</strong><br>`+
+      `Run <code style="color:var(--accent);background:rgba(0,200,255,.1);padding:1px 5px;border-radius:3px">daily_export.py ${d}</code> on the server PC to push this date's data to GitHub.<br>`+
+      `Once pushed, refresh this page and select the date again.`;
+    nb.classList.add('show');
+    st('err','No data for '+d);
+    DB[d]={};
+    renderAll();
+  }
+}
+
+function selM(m,el){
+  S.machine=m;
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+  renderAll();
+}
+
+function renderAll(){
+  rFleet();rKPI();rBoats();rDefects();rMachChart();rHourly();rPie();rAllMach();
+  document.getElementById('genT').textContent=new Date().toLocaleString();
+  document.getElementById('footL').textContent='Rear PECVD AOI · '+S.date;
+}
+
+function rFleet(){
+  const dd=ad();const mx=Math.max(...MC.map(m=>dd[m]?.ng_rate||0),.1);
+  document.getElementById('fleet').innerHTML=MC.map((m,i)=>{
+    const d=dd[m];const c=CC[i];const on=S.machine==='ALL'||S.machine===m;
+    if(!d)return`<div class="fc nd" style="--fcc:${c}"><div class="fn">${m}</div><div class="fv" style="font-size:12px;color:var(--dim)">–</div><div class="fr">no data</div><div class="fb"></div></div>`;
+    return`<div class="fc${on?' on':''}" style="--fcc:${c}" onclick="selM('${m}',document.querySelector('.chip[data-m=\\'${m}\\']'))">
+      <div class="fn">${m}</div><div class="fv" style="color:${nc(d.ng_rate)}">${d.ng.toLocaleString()}</div>
+      <div class="fr">NG <strong style="color:${nc(d.ng_rate)}">${d.ng_rate}%</strong></div>
+      <div class="fb"><div class="fbf" style="width:${(d.ng_rate/mx*100).toFixed(1)}%;background:${c}"></div></div>
+    </div>`;
+  }).join('');
+}
+
+function rKPI(){
+  const dd=ad();const ms=am();
+  const tot=ms.reduce((a,m)=>a+(dd[m]?.total||0),0);
+  const ok=ms.reduce((a,m)=>a+(dd[m]?.ok||0),0);
+  const ng=ms.reduce((a,m)=>a+(dd[m]?.ng||0),0);
+  const nr=tot?(ng/tot*100).toFixed(2):0;
+  const yr=tot?(ok/tot*100).toFixed(2):0;
+  const at=(ms.reduce((a,m)=>a+(dd[m]?.avg_th||0),0)/Math.max(ms.length,1)).toFixed(2);
+  const bt=ms.reduce((a,m)=>a+(dd[m]?.boats?.length||0),0);
+  document.getElementById('krow').innerHTML=`
+    <div class="kpi" style="--kc:var(--accent)"><div class="kl">Total Wafers</div><div class="kv">${tot.toLocaleString()}</div><div class="ks">${S.machine==='ALL'?'All 7 Machines':S.machine} · ${S.date}</div></div>
+    <div class="kpi" style="--kc:var(--ok)"><div class="kl">OK Wafers</div><div class="kv" style="color:var(--ok)">${ok.toLocaleString()}</div><div class="ks">${yr}% Yield</div></div>
+    <div class="kpi" style="--kc:var(--danger)"><div class="kl">NG Wafers</div><div class="kv" style="color:${nc(+nr)}">${ng.toLocaleString()}</div><div class="ks">${nr}% NG Rate</div></div>
+    <div class="kpi" style="--kc:var(--warn)"><div class="kl">Machines Active</div><div class="kv" style="color:var(--warn)">${ms.length}</div><div class="ks">of 7 total</div></div>
+    <div class="kpi" style="--kc:#00e676"><div class="kl">Boats Processed</div><div class="kv" style="color:#00e676">${bt}</div><div class="ks">Combined</div></div>
+    <div class="kpi" style="--kc:#a78bfa"><div class="kl">Avg Film Thickness</div><div class="kv" style="color:#a78bfa;font-size:22px">${at} nm</div><div class="ks">Mean across machines</div></div>`;
+}
+
+function rBoats(){
+  const dd=ad();const ms=am();
+  const all=[];ms.forEach(m=>(dd[m]?.boats||[]).forEach(b=>all.push({...b,_m:m,_c:CC[MC.indexOf(m)]})));
+  const mx=Math.max(...all.map(b=>b.ng_rate),2);
+  document.getElementById('btbody').innerHTML=all.map(b=>`
+    <tr><td style="color:var(--accent);font-weight:600">${b.boat}</td><td style="color:${b._c};font-weight:700">${b._m}</td>
+    <td style="color:var(--dim)">${b.process}</td><td>${b.total.toLocaleString()}</td>
+    <td style="color:var(--ok)">${b.ok.toLocaleString()}</td><td style="color:var(--danger)">${b.ng}</td>
+    <td><div class="ngw"><div class="nbg"><div class="nf" style="width:${(b.ng_rate/mx*100).toFixed(1)}%;background:${nc(b.ng_rate)}"></div></div><span class="np" style="color:${nc(b.ng_rate)}">${b.ng_rate}%</span></div></td>
+    <td style="color:#a78bfa">${b.avg_th} nm</td><td>${nt(b.ng_rate)}</td></tr>`).join('');
+  document.getElementById('bsub').textContent=all.length+' boats';
+}
+
+function rDefects(){
+  const dd=ad();const ms=am();const ag={};
+  ms.forEach(m=>(dd[m]?.defects||[]).forEach(d=>{ag[d.name]=(ag[d.name]||0)+d.count;}));
+  const sv=Object.entries(ag).sort((a,b)=>b[1]-a[1]).slice(0,12);
+  const mx=sv[0]?.[1]||1;
+  document.getElementById('dng').textContent=ms.reduce((a,m)=>a+(dd[m]?.ng||0),0).toLocaleString()+' NG';
+  document.getElementById('dlist').innerHTML=sv.map(([n,c])=>
+    `<div class="dfr"><span class="dfn" title="${n}">${n}</span><div class="dfb"><div class="dfbf" style="width:${(c/mx*100).toFixed(0)}%"></div></div><span class="dfc">${c}</span></div>`
+  ).join('');
+}
+
+function rMachChart(){
+  dc('mc');const dd=ad();const ms=am();
+  S.charts.mc=new Chart(document.getElementById('mcChart'),{type:'bar',
+    data:{labels:ms,datasets:[{label:'NG Rate (%)',data:ms.map(m=>dd[m]?.ng_rate||0),
+      backgroundColor:ms.map(m=>{const r=dd[m]?.ng_rate||0;return r>2?'rgba(255,64,96,.75)':r>1.5?'rgba(255,140,66,.75)':r>1?'rgba(255,193,7,.75)':'rgba(0,230,118,.65)'}),
+      borderRadius:5,borderWidth:0}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{grid:{color:GR}},y:{grid:{color:GR},beginAtZero:true,title:{display:true,text:'NG Rate (%)'}}}}});
+}
+
+function rHourly(){
+  dc('hc');const dd=ad();const ms=am();
+  const ag=Array.from({length:24},(_,h)=>({h,total:0,ng:0}));
+  ms.forEach(m=>(dd[m]?.hourly||[]).forEach(r=>{ag[r.h].total+=r.total;ag[r.h].ng+=r.ng;}));
+  document.getElementById('hLbl').textContent=S.machine==='ALL'?'All machines':S.machine;
+  S.charts.hc=new Chart(document.getElementById('hChart'),{type:'line',
+    data:{labels:ag.map(h=>String(h.h).padStart(2,'0')+':00'),datasets:[
+      {label:'NG Count',data:ag.map(h=>h.ng),borderColor:'rgba(255,107,53,.9)',backgroundColor:'rgba(255,107,53,.08)',fill:true,tension:.4,pointRadius:3,yAxisID:'y'},
+      {label:'NG Rate %',data:ag.map(h=>h.total?(h.ng/h.total*100).toFixed(2):0),borderColor:'rgba(0,200,255,.7)',borderDash:[4,3],tension:.4,pointRadius:2,yAxisID:'y1'}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{boxWidth:10,padding:10}}},
+      scales:{x:{grid:{color:GR},ticks:{maxRotation:45,maxTicksLimit:12}},
+        y:{grid:{color:GR},beginAtZero:true,title:{display:true,text:'NG Count'},position:'left'},
+        y1:{grid:{display:false},beginAtZero:true,title:{display:true,text:'NG Rate %'},position:'right'}}}});
+}
+
+function rPie(){
+  dc('pc');const dd=ad();const ms=am();const ag={};
+  ms.forEach(m=>(dd[m]?.defects||[]).forEach(d=>{ag[d.name]=(ag[d.name]||0)+d.count;}));
+  const sv=Object.entries(ag).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const tot=sv.reduce((a,[,v])=>a+v,0);
+  const cl=['#00c8ff','#ff6b35','#ffc107','#00e676','#ff4060','#a78bfa','#06b6d4','#84cc16','#f472b6','#94a3b8'];
+  S.charts.pc=new Chart(document.getElementById('pChart'),{type:'doughnut',
+    data:{labels:sv.map(([n])=>n),datasets:[{data:sv.map(([,v])=>v),backgroundColor:cl,borderColor:'#0e1e30',borderWidth:2,hoverOffset:8}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'right',labels:{boxWidth:10,padding:8,font:{size:10}}},
+        tooltip:{callbacks:{label:c=>` ${c.label}: ${c.raw} (${(c.raw/tot*100).toFixed(1)}%)`}}},cutout:'55%'}});
+}
+
+function rAllMach(){
+  const dd=ad();
+  document.getElementById('ambody').innerHTML=MC.map((m,i)=>{
+    const d=dd[m];const hl=S.machine==='ALL'||S.machine===m;
+    if(!d)return`<tr><td style="color:${CC[i]};font-weight:700">${m}</td><td colspan="7" style="color:var(--dim);font-size:11px">No data</td></tr>`;
+    return`<tr style="${hl?'background:rgba(0,200,255,.05)':''}">
+      <td style="color:${CC[i]};font-weight:700">${m}</td><td>${d.total.toLocaleString()}</td>
+      <td style="color:var(--ok)">${d.ok.toLocaleString()}</td><td style="color:var(--danger)">${d.ng.toLocaleString()}</td>
+      <td><span style="color:${nc(d.ng_rate)};font-weight:700">${d.ng_rate}%</span></td>
+      <td style="color:#a78bfa">${d.avg_th} nm</td><td>${d.boats.length}</td><td>${nt(d.ng_rate)}</td></tr>`;
+  }).join('');
+}
+
+// Init — default to today's date
+window.addEventListener('DOMContentLoaded',()=>{
+  const t=new Date();
+  const d=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+  document.getElementById('df').value=d;
+  onDateChange();
+});
+</script>
+</body>
+</html>
