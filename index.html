@@ -161,6 +161,21 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
     <div class="card"><div class="ch"><span class="ct">📊 NG Rate by Machine</span><span id="mcDate" style="font-size:10px;color:var(--dim);font-family:var(--mono)"></span></div><div class="cb"><div class="chartbox"><canvas id="mcChart"></canvas></div></div></div>
     <div class="card"><div class="ch"><span class="ct">📈 Hourly NG Trend</span><span id="hLbl" style="font-size:10px;color:var(--dim);font-family:var(--mono)"></span></div><div class="cb"><div class="chartbox"><canvas id="hChart"></canvas></div></div></div>
   </div>
+
+  <!-- TUBE ROW -->
+  <div class="g2" id="tubeRow" style="margin-bottom:18px">
+    <div class="card">
+      <div class="ch"><span class="ct">🔬 Tube-wise NG Rate (%)</span><span id="tubeMachLbl" style="font-size:10px;color:var(--dim);font-family:var(--mono)"></span></div>
+      <div class="cb"><div class="chartbox"><canvas id="tubeChart"></canvas></div></div>
+    </div>
+    <div class="card">
+      <div class="ch"><span class="ct">📋 Tube-wise Summary</span><span id="tubeSub" style="font-size:10px;color:var(--dim);font-family:var(--mono)"></span></div>
+      <div style="overflow-x:auto;max-height:280px;overflow-y:auto">
+        <table class="tbl"><thead><tr><th>Machine</th><th>Tube</th><th>Total</th><th>OK</th><th>NG</th><th>NG Rate</th><th>Top Defect</th><th>Status</th></tr></thead>
+        <tbody id="tubeTbody"></tbody></table>
+      </div>
+    </div>
+  </div>
   <div class="g2">
     <div class="card"><div class="ch"><span class="ct">🥧 Defect Distribution</span></div><div class="cb"><div class="chartbox"><canvas id="pChart"></canvas></div></div></div>
     <div class="card">
@@ -177,7 +192,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 
 <script>
 // ── CONFIG: set your GitHub username here ──────────────────────────
-const GH = 'https://raw.githubusercontent.com/yashikajangid/aoi-dashboard/main/data';
+const GH = 'https://raw.githubusercontent.com/YOUR_USERNAME/aoi-dashboard/main/data';
 // After setup replace YOUR_USERNAME with your actual GitHub username
 // Data loads from: GH + '/YYYY-MM-DD.json'
 // ──────────────────────────────────────────────────────────────────
@@ -250,8 +265,62 @@ function selM(m,el){
   renderAll();
 }
 
+
+function rTubes(){
+  dc('tc');
+  const dd=ad(); const ms=am();
+  document.getElementById('tubeMachLbl').textContent=S.machine==='ALL'?'All machines':S.machine;
+
+  // Aggregate tube data across selected machines
+  const tubeAgg={};
+  ms.forEach(m=>{
+    (dd[m]?.tubes||[]).forEach(t=>{
+      const key=m+'-T'+t.tube;
+      tubeAgg[key]={machine:m,tube:t.tube,total:t.total,ok:t.ok,ng:t.ng,
+        ng_rate:t.ng_rate,top_defect:t.top_defect,_c:CC[MC.indexOf(m)]};
+    });
+  });
+
+  const tubeList=Object.values(tubeAgg).sort((a,b)=>{
+    if(a.machine!==b.machine) return MC.indexOf(a.machine)-MC.indexOf(b.machine);
+    return parseInt(a.tube)-parseInt(b.tube);
+  });
+
+  // Tube NG Rate Bar Chart
+  const labels=tubeList.map(t=>t.machine+' T'+t.tube);
+  const data=tubeList.map(t=>t.ng_rate);
+  const colors=tubeList.map(t=>{
+    const r=t.ng_rate;
+    return r>2?'rgba(255,64,96,.8)':r>1.5?'rgba(255,140,66,.8)':r>1?'rgba(255,193,7,.8)':'rgba(0,230,118,.7)';
+  });
+
+  S.charts.tc=new Chart(document.getElementById('tubeChart'),{type:'bar',
+    data:{labels,datasets:[{label:'NG Rate (%)',data,backgroundColor:colors,borderRadius:4,borderWidth:0}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` NG Rate: ${c.raw}%`}}},
+      scales:{x:{grid:{color:GR},ticks:{maxRotation:45,font:{size:10}}},
+        y:{grid:{color:GR},beginAtZero:true,title:{display:true,text:'NG Rate (%)'}}}
+    }});
+
+  // Tube Summary Table
+  const maxR=Math.max(...tubeList.map(t=>t.ng_rate),2);
+  document.getElementById('tubeTbody').innerHTML=tubeList.map(t=>`
+    <tr>
+      <td style="color:${t._c};font-weight:700">${t.machine}</td>
+      <td style="color:var(--accent);font-weight:600">Tube ${t.tube}</td>
+      <td>${t.total.toLocaleString()}</td>
+      <td style="color:var(--ok)">${t.ok.toLocaleString()}</td>
+      <td style="color:var(--danger)">${t.ng}</td>
+      <td><div class="ngw"><div class="nbg"><div class="nf" style="width:${(t.ng_rate/maxR*100).toFixed(1)}%;background:${nc(t.ng_rate)}"></div></div>
+        <span class="np" style="color:${nc(t.ng_rate)}">${t.ng_rate}%</span></div></td>
+      <td style="color:var(--dim);font-size:11px;max-width:140px;overflow:hidden;text-overflow:ellipsis" title="${t.top_defect}">${t.top_defect}</td>
+      <td>${nt(t.ng_rate)}</td>
+    </tr>`).join('');
+  document.getElementById('tubeSub').textContent=tubeList.length+' tubes';
+}
+
 function renderAll(){
-  rFleet();rKPI();rBoats();rDefects();rMachChart();rHourly();rPie();rAllMach();
+  rFleet();rKPI();rBoats();rDefects();rMachChart();rHourly();rPie();rAllMach();rTubes();
   document.getElementById('genT').textContent=new Date().toLocaleString();
   document.getElementById('footL').textContent='Rear PECVD AOI · '+S.date;
 }
